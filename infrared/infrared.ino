@@ -5,11 +5,11 @@
 const char* ssid = "ssid"; // Coloque o nome da sua rede WiFi
 const char* senha = "senha"; // Coloque a senha da sua rede WiFi
 
-const char* rota = "coloque_aqui_a_url_do_seu_servidor";
+const char* rota = "endereco/rota"; 
 
 const int IR_RECEIVE_PIN = 15; // GPIO15
 const int IR_SENDER_PIN = 16; // GPIO16
-uint32_t irCode = 0;
+uint32_t codigoIR = 0;
 
 void setup() {
     Serial.begin(115200);
@@ -29,42 +29,34 @@ void setup() {
 
 void loop() {
 
-    // Recebe o código IR
-    if (IrReceiver.decode()) 
-    {
-        irCode = IrReceiver.decodedIRData.decodedRawData;
-        if (irCode != 0) 
-        {
-            String jsonData = "{\"code\":\"" + String(irCode, HEX) + "\"}";
+    if (IrReceiver.decode()) {
+        codigoIR = IrReceiver.decodedIRData.decodedRawData;    
+
+        if (codigoIR != 0) {
+            String jsonData = "{\"codigo\":\"" + String(codigoIR, HEX) + "\"}";
+            
+            Serial.println("Transmitindo código IR...");
+            IrSender.sendNEC(codigoIR, 32);
+            delay(500);
+            Serial.println("Código IR transmitido");
 
             HTTPClient http;
+            
             http.begin(rota);
             http.addHeader("Content-Type", "application/json");
             
-            int httpResponseCode = http.POST(jsonData);
-
-            if (httpResponseCode > 0) 
-            {
+            int httpResponse = http.POST(jsonData);
+            
+            if (httpResponse > 0) {
                 String response = http.getString();
-                Serial.println("Código IR enviado: 0x" + String(irCode, HEX));
+                Serial.println("Código IR enviado: 0x" + String(codigoIR, HEX));
                 Serial.println("Resposta do servidor: " + response);
-            } 
-            else 
-            {
+            } else {
                 Serial.println("Erro no envio do código IR");
             }           
-            
             http.end();
         }      
         IrReceiver.resume();
-    }
-
-    // Transmite o código IR em loop o último código recebido
-    if (irCode != 0) {
-        Serial.println("Transmitindo código IR...");
-        IrSender.sendNECRaw(irCode, 32); // Adapte o número de bits conforme o protocolo do seu controle remoto
-        delay(500);
-        Serial.println("Código IR transmitido");
     }
     delay(100);
 }
